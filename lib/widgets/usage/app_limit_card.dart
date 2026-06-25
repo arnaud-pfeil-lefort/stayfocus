@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 
 import '../../models/app_limit.dart';
 import '../../services/limits_service.dart';
@@ -37,37 +38,45 @@ class _AppLimitCardState extends State<AppLimitCard> {
   }
 
   Future<void> _load() async {
-    final ownPackageName = await _limitsService.getOwnPackageName();
-    if (ownPackageName == widget.packageName) {
+    try {
+      final ownPackageName = await _limitsService.getOwnPackageName();
+      if (ownPackageName == widget.packageName) {
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _isSelf = true;
+        });
+        return;
+      }
+      final limits = await _limitsService.getLimits();
+      AppLimit? existing;
+      for (final limit in limits) {
+        if (limit.packageName == widget.packageName) {
+          existing = limit;
+          break;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _isSelf = true;
+        final warningMinutes = existing?.warningIntervalMinutes;
+        if (warningMinutes != null) {
+          _warningEnabled = true;
+          _warningIndex = _closestIndex(_warningOptions, warningMinutes);
+        }
+        final dailyLimitMinutes = existing?.dailyLimitMinutes;
+        if (dailyLimitMinutes != null) {
+          _dailyLimitEnabled = true;
+          _dailyLimitIndex = _closestIndex(_dailyLimitOptions, dailyLimitMinutes);
+        }
       });
-      return;
+    } on MissingPluginException {
+      // The native side isn't wired up in the currently running build (a
+      // stale install from before this channel existed, most commonly) —
+      // fail closed rather than leaving the card stuck invisible forever.
+      if (!mounted) return;
+      setState(() => _loading = false);
     }
-    final limits = await _limitsService.getLimits();
-    AppLimit? existing;
-    for (final limit in limits) {
-      if (limit.packageName == widget.packageName) {
-        existing = limit;
-        break;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      final warningMinutes = existing?.warningIntervalMinutes;
-      if (warningMinutes != null) {
-        _warningEnabled = true;
-        _warningIndex = _closestIndex(_warningOptions, warningMinutes);
-      }
-      final dailyLimitMinutes = existing?.dailyLimitMinutes;
-      if (dailyLimitMinutes != null) {
-        _dailyLimitEnabled = true;
-        _dailyLimitIndex = _closestIndex(_dailyLimitOptions, dailyLimitMinutes);
-      }
-    });
   }
 
   static int _closestIndex(List<int> options, int value) {

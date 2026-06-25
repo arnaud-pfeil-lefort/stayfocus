@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../models/ios_app_limit_group.dart';
 import '../../utils/duration_format.dart';
 import '../../utils/usage_stages.dart';
-import 'blinking_warning_badge.dart';
 import 'usage_card.dart';
+import 'usage_pulse_dot.dart';
 
 const _cardRadius = BorderRadius.all(Radius.circular(12));
 
@@ -61,9 +61,9 @@ class IosLimitGroupCard extends StatelessWidget {
       children: [
         card,
         Positioned(
-          top: -8,
-          right: -8,
-          child: BlinkingWarningBadge(stage: stage),
+          top: -4,
+          right: -4,
+          child: UsagePulseDot(color: stage.color, size: 16),
         ),
       ],
     );

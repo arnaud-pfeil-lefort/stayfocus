@@ -1,8 +1,6 @@
 import '../../models/app_usage_info.dart';
 
-
 enum PermissionStatus { granted, denied, unsupported }
-
 
 abstract class UsageSource {
   bool get isSupported;

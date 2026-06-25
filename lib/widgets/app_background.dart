@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-const _violet = Color(0xFF8B5CF6);
+import '../theme/app_colors.dart';
 
-/// Wraps [child] with a subtle violet gradient fading in from the top and
-/// bottom edges of the screen, used as the background for every screen.
+/// Wraps [child] with a very subtle vertical gradient: a faint violet/blue
+/// wash at the top and bottom edges fading into a clean center.
+///
+/// The exact colors come from the active [AppColors] palette, so it adapts to
+/// light and dark themes automatically.
 class AppBackground extends StatelessWidget {
   const AppBackground({super.key, required this.child});
 
@@ -11,18 +14,20 @@ class AppBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colors;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            _violet.withValues(alpha: 0.035),
-            Colors.white,
-            Colors.white,
-            _violet.withValues(alpha: 0.035),
+            colors.gradientTop,
+            colors.gradientCenter,
+            colors.gradientCenter,
+            colors.gradientBottom,
           ],
-          stops: const [0.0, 0.45, 0.55, 1.0],
+          stops: const [0.0, 0.32, 0.68, 1.0],
         ),
       ),
       child: child,

@@ -6,9 +6,13 @@ import '../models/app_usage_info.dart';
 import '../models/day_usage.dart';
 import '../services/platform.dart';
 import '../services/usage/source.dart';
+import '../theme/app_colors.dart';
+import '../theme/theme_controller.dart';
 import '../utils/day_range.dart';
 import '../utils/weekly_totals.dart';
 import '../widgets/app_background.dart';
+import '../widgets/focus_logo.dart';
+import '../widgets/theme_toggle_button.dart';
 import '../widgets/usage/usage_app_list.dart';
 import '../widgets/usage/usage_chart_section.dart';
 import '../widgets/usage/usage_message.dart';
@@ -20,14 +24,15 @@ import 'ios_app_limits_screen.dart';
 /// system settings, so this screen has three states: unsupported platform,
 /// permission not yet granted, and the actual usage list.
 class UsageScreen extends StatefulWidget {
-  const UsageScreen({super.key});
+  const UsageScreen({super.key, required this.controller});
+
+  final ThemeController controller;
 
   @override
   State<UsageScreen> createState() => _UsageScreenState();
 }
 
-class _UsageScreenState extends State<UsageScreen>
-    with WidgetsBindingObserver {
+class _UsageScreenState extends State<UsageScreen> with WidgetsBindingObserver {
   static const _lookback = Duration(days: 7);
 
   final UsageSource _source = createUsageSource();
@@ -84,8 +89,8 @@ class _UsageScreenState extends State<UsageScreen>
   }
 
   Future<List<DayUsage>> _loadDailyTotals() => loadWeeklyTotals(
-        (start, end) => _source.getTotalUsage(start: start, end: end),
-      );
+    (start, end) => _source.getTotalUsage(start: start, end: end),
+  );
 
   Future<void> _refreshUsage() async {
     final usageFuture = _loadUsage();
@@ -107,7 +112,16 @@ class _UsageScreenState extends State<UsageScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AppBackground(child: SafeArea(child: _buildBody())),
+      body: AppBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              _Header(controller: widget.controller),
+              Expanded(child: _buildBody()),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -125,14 +139,16 @@ class _UsageScreenState extends State<UsageScreen>
       }
       return const UsageMessage(
         icon: Icons.info_outline,
-        text: 'Le suivi du temps d\'utilisation n\'est pas encore '
+        text:
+            'Le suivi du temps d\'utilisation n\'est pas encore '
             'disponible sur cette plateforme.',
       );
     }
     if (status == PermissionStatus.denied) {
       return UsageMessage(
         icon: Icons.lock_outline,
-        text: 'StayFocus a besoin de l\'accès aux statistiques '
+        text:
+            'StayFocus a besoin de l\'accès aux statistiques '
             'd\'utilisation pour afficher le temps passé sur chaque '
             'application.',
         action: FilledButton(
@@ -149,6 +165,32 @@ class _UsageScreenState extends State<UsageScreen>
         dailyTotalsFuture: _dailyTotalsFuture,
         selectedOffset: _selectedDayOffset,
         onSelect: _selectPeriod,
+      ),
+    );
+  }
+}
+
+/// Top bar: the app name on the left, the light/dark toggle on the right.
+class _Header extends StatelessWidget {
+  const _Header({required this.controller});
+
+  final ThemeController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colors;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 24, 16, 14),
+      child: Row(
+        children: [
+          FocusLogo(size: 32, color: colors.accent),
+          const SizedBox(width: 12),
+          Text('StayFocus', style: textTheme.titleLarge),
+          const Spacer(),
+          ThemeToggleButton(controller: controller),
+        ],
       ),
     );
   }
