@@ -72,6 +72,16 @@ class AndroidUsageSource implements UsageSource {
     return Duration(milliseconds: totalMs);
   }
 
+  @override
+  Future<Duration> getPackageUsage({
+    required String packageName,
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    final totals = await _computeUsageTotals(start: start, end: end);
+    return Duration(milliseconds: totals.totalMs[packageName] ?? 0);
+  }
+
   // queryAndAggregateUsageStats apportions time using the system's internal
   // daily buckets, which aren't aligned to local midnight: querying an
   // arbitrary window (e.g. a single calendar day) yields skewed totals.

@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../../models/day_usage.dart';
 import 'daily_usage_chart.dart';
 
-/// Header shown above the app list: a "Temps par jour" label, a button to
-/// reset to the 7-day aggregate, and the [DailyUsageChart] itself.
+/// Plain (uncarded) header for the app list: a button to reset to the 7-day
+/// aggregate, and the [DailyUsageChart] itself. Meant to be placed as the
+/// first item of the list it precedes, so it scrolls away with it.
 class UsageChartSection extends StatelessWidget {
   const UsageChartSection({
     super.key,
@@ -19,51 +20,40 @@ class UsageChartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Temps par jour',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              TextButton(
-                onPressed:
-                    selectedOffset == null ? null : () => onSelect(null),
-                child: const Text('7 derniers jours'),
-              ),
-            ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: selectedOffset == null ? null : () => onSelect(null),
+            child: const Text('7 derniers jours'),
           ),
-          SizedBox(
-            height: 150,
-            child: FutureBuilder<List<DayUsage>>(
-              future: dailyTotalsFuture,
-              builder: (context, snapshot) {
-                final days = snapshot.data;
-                if (days == null) {
-                  return const Center(
-                    child: SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                }
-                return DailyUsageChart(
-                  days: days,
-                  selectedOffset: selectedOffset,
-                  onSelect: onSelect,
+        ),
+        SizedBox(
+          height: 150,
+          child: FutureBuilder<List<DayUsage>>(
+            future: dailyTotalsFuture,
+            builder: (context, snapshot) {
+              final days = snapshot.data;
+              if (days == null) {
+                return const Center(
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 );
-              },
-            ),
+              }
+              return DailyUsageChart(
+                days: days,
+                selectedOffset: selectedOffset,
+                onSelect: onSelect,
+              );
+            },
           ),
-          const Divider(height: 1),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

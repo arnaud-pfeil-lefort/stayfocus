@@ -4,7 +4,9 @@ import '../models/app_usage_info.dart';
 import '../models/day_usage.dart';
 import '../services/platform.dart';
 import '../services/usage/source.dart';
-import '../utils/weekday_labels.dart';
+import '../utils/day_range.dart';
+import '../utils/weekly_totals.dart';
+import '../widgets/app_background.dart';
 import '../widgets/usage/usage_app_list.dart';
 import '../widgets/usage/usage_chart_section.dart';
 import '../widgets/usage/usage_message.dart';
@@ -68,34 +70,19 @@ class _UsageScreenState extends State<UsageScreen>
     });
   }
 
-  /// The [start, end) window for the day [offset] days ago (0 = today).
-  ({DateTime start, DateTime end}) _dayRange(int offset) {
-    final now = DateTime.now();
-    final day = DateTime(now.year, now.month, now.day)
-        .subtract(Duration(days: offset));
-    final end = offset == 0 ? now : day.add(const Duration(days: 1));
-    return (start: day, end: end);
-  }
-
   Future<List<AppUsageInfo>> _loadUsage() {
     final offset = _selectedDayOffset;
     if (offset == null) {
       final now = DateTime.now();
       return _source.getUsage(start: now.subtract(_lookback), end: now);
     }
-    final range = _dayRange(offset);
+    final range = dayRange(offset);
     return _source.getUsage(start: range.start, end: range.end);
   }
 
-  Future<List<DayUsage>> _loadDailyTotals() async {
-    final offsets = List.generate(7, (i) => 6 - i);
-    return Future.wait(offsets.map((offset) async {
-      final range = _dayRange(offset);
-      final duration =
-          await _source.getTotalUsage(start: range.start, end: range.end);
-      return DayUsage(day: range.start, offset: offset, duration: duration);
-    }));
-  }
+  Future<List<DayUsage>> _loadDailyTotals() => loadWeeklyTotals(
+        (start, end) => _source.getTotalUsage(start: start, end: end),
+      );
 
   Future<void> _refreshUsage() async {
     final usageFuture = _loadUsage();
@@ -114,33 +101,10 @@ class _UsageScreenState extends State<UsageScreen>
     });
   }
 
-  String get _title {
-    final offset = _selectedDayOffset;
-    if (offset == null) {
-      return 'Temps d\'utilisation (7 derniers jours)';
-    }
-    final day = DateTime.now().subtract(Duration(days: offset));
-    return 'Temps d\'utilisation – ${formatWeekdayDate(day)}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_title)),
-      body: SafeArea(
-        child: Column(
-          children: [
-            if (_permissionStatus == PermissionStatus.granted &&
-                _source.isSupported)
-              UsageChartSection(
-                dailyTotalsFuture: _dailyTotalsFuture,
-                selectedOffset: _selectedDayOffset,
-                onSelect: _selectPeriod,
-              ),
-            Expanded(child: _buildBody()),
-          ],
-        ),
-      ),
+      body: AppBackground(child: SafeArea(child: _buildBody())),
     );
   }
 
@@ -168,6 +132,15 @@ class _UsageScreenState extends State<UsageScreen>
         ),
       );
     }
-    return UsageAppList(usageFuture: _usageFuture, onRefresh: _refreshUsage);
+    return UsageAppList(
+      usageFuture: _usageFuture,
+      onRefresh: _refreshUsage,
+      source: _source,
+      header: UsageChartSection(
+        dailyTotalsFuture: _dailyTotalsFuture,
+        selectedOffset: _selectedDayOffset,
+        onSelect: _selectPeriod,
+      ),
+    );
   }
 }

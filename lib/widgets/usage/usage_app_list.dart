@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 
 import '../../models/app_usage_info.dart';
+import '../../screens/app_usage_screen.dart';
+import '../../services/usage/source.dart';
 import '../../utils/duration_format.dart';
+import 'app_usage_card.dart';
 import 'usage_message.dart';
 
 /// The scrollable list of per-app usage for the currently selected period,
-/// with a pull-to-refresh affordance.
+/// with a pull-to-refresh affordance. Tapping an app opens its weekly chart.
+///
+/// [header], if given, scrolls away with the list instead of staying pinned.
 class UsageAppList extends StatelessWidget {
   const UsageAppList({
     super.key,
     required this.usageFuture,
     required this.onRefresh,
+    required this.source,
+    this.header,
   });
 
   final Future<List<AppUsageInfo>>? usageFuture;
   final Future<void> Function() onRefresh;
+  final UsageSource source;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -43,11 +52,17 @@ class UsageAppList extends StatelessWidget {
             Duration.zero,
             (sum, app) => sum + app.usage,
           );
+          final headerCount = header != null ? 1 : 0;
           return ListView.separated(
-            itemCount: usage.length + 1,
-            separatorBuilder: (_, _) => const Divider(height: 1),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            itemCount: usage.length + 1 + headerCount,
+            separatorBuilder: (_, _) => const SizedBox(height: 14),
             itemBuilder: (context, index) {
-              if (index == 0) {
+              if (header != null && index == 0) {
+                return header!;
+              }
+              final localIndex = index - headerCount;
+              if (localIndex == 0) {
                 return ListTile(
                   title: Text(
                     'Total : ${formatDuration(total)}',
@@ -56,14 +71,14 @@ class UsageAppList extends StatelessWidget {
                   subtitle: Text('${usage.length} applications utilisées'),
                 );
               }
-              final app = usage[index - 1];
-              return ListTile(
-                leading: app.icon != null
-                    ? Image.memory(app.icon!, width: 40, height: 40)
-                    : const Icon(Icons.apps, size: 40),
-                title: Text(app.appName),
-                subtitle: Text(app.packageName),
-                trailing: Text(formatDuration(app.usage)),
+              final app = usage[localIndex - 1];
+              return AppUsageCard(
+                app: app,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AppUsageScreen(app: app, source: source),
+                  ),
+                ),
               );
             },
           );

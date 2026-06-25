@@ -25,4 +25,11 @@ class UnsupportedUsageSource implements UsageSource {
     required DateTime start,
     required DateTime end,
   }) async => Duration.zero;
+
+  @override
+  Future<Duration> getPackageUsage({
+    required String packageName,
+    required DateTime start,
+    required DateTime end,
+  }) async => Duration.zero;
 }

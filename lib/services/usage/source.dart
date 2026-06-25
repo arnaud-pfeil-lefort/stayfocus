@@ -24,4 +24,12 @@ abstract class UsageSource {
     required DateTime start,
     required DateTime end,
   });
+
+  /// Foreground usage time for a single [packageName] between [start] and
+  /// [end]. Used to draw a single app's per-day usage chart.
+  Future<Duration> getPackageUsage({
+    required String packageName,
+    required DateTime start,
+    required DateTime end,
+  });
 }
