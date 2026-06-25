@@ -10,9 +10,11 @@ Future<List<DayUsage>> loadWeeklyTotals(
   Future<Duration> Function(DateTime start, DateTime end) getDuration,
 ) {
   final offsets = List.generate(7, (i) => 6 - i);
-  return Future.wait(offsets.map((offset) async {
-    final range = dayRange(offset);
-    final duration = await getDuration(range.start, range.end);
-    return DayUsage(day: range.start, offset: offset, duration: duration);
-  }));
+  return Future.wait(
+    offsets.map((offset) async {
+      final range = dayRange(offset);
+      final duration = await getDuration(range.start, range.end);
+      return DayUsage(day: range.start, offset: offset, duration: duration);
+    }),
+  );
 }

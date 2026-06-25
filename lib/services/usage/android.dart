@@ -24,9 +24,7 @@ class AndroidUsageSource implements UsageSource {
   @override
   Future<PermissionStatus> checkPermission() async {
     final granted = await UsageStats.checkUsagePermission();
-    return granted == true
-        ? PermissionStatus.granted
-        : PermissionStatus.denied;
+    return granted == true ? PermissionStatus.granted : PermissionStatus.denied;
   }
 
   @override
@@ -38,24 +36,27 @@ class AndroidUsageSource implements UsageSource {
     required DateTime end,
   }) async {
     final totals = await _computeUsageTotals(start: start, end: end);
-    final usedPackages =
-        totals.totalMs.entries.where((entry) => entry.value > 0).toList();
+    final usedPackages = totals.totalMs.entries
+        .where((entry) => entry.value > 0)
+        .toList();
 
-    final result = await Future.wait(usedPackages.map((entry) async {
-      final packageName = entry.key;
-      final info = await UsageStats.getAppInfo(packageName);
-      final icon = await UsageStats.getAppIcon(packageName);
-      final lastUsed = totals.lastUsedMs[packageName];
-      return AppUsageInfo(
-        packageName: packageName,
-        appName: info?.appName ?? packageName,
-        usage: Duration(milliseconds: entry.value),
-        lastTimeUsed: lastUsed != null
-            ? DateTime.fromMillisecondsSinceEpoch(lastUsed)
-            : null,
-        icon: icon,
-      );
-    }));
+    final result = await Future.wait(
+      usedPackages.map((entry) async {
+        final packageName = entry.key;
+        final info = await UsageStats.getAppInfo(packageName);
+        final icon = await UsageStats.getAppIcon(packageName);
+        final lastUsed = totals.lastUsedMs[packageName];
+        return AppUsageInfo(
+          packageName: packageName,
+          appName: info?.appName ?? packageName,
+          usage: Duration(milliseconds: entry.value),
+          lastTimeUsed: lastUsed != null
+              ? DateTime.fromMillisecondsSinceEpoch(lastUsed)
+              : null,
+          icon: icon,
+        );
+      }),
+    );
 
     result.sort((a, b) => b.usage.compareTo(a.usage));
     return result;
@@ -67,8 +68,10 @@ class AndroidUsageSource implements UsageSource {
     required DateTime end,
   }) async {
     final totals = await _computeUsageTotals(start: start, end: end);
-    final totalMs =
-        totals.totalMs.values.fold<int>(0, (sum, value) => sum + value);
+    final totalMs = totals.totalMs.values.fold<int>(
+      0,
+      (sum, value) => sum + value,
+    );
     return Duration(milliseconds: totalMs);
   }
 
@@ -94,14 +97,17 @@ class AndroidUsageSource implements UsageSource {
   }) async {
     final queryStart = start.subtract(const Duration(days: 1));
     final rawEvents = await UsageStats.queryEvents(queryStart, end);
-    final events = rawEvents
-        .map((event) => (
-              timestamp: int.tryParse(event.timeStamp ?? ''),
-              event: event,
-            ))
-        .where((entry) => entry.timestamp != null)
-        .toList()
-      ..sort((a, b) => a.timestamp!.compareTo(b.timestamp!));
+    final events =
+        rawEvents
+            .map(
+              (event) => (
+                timestamp: int.tryParse(event.timeStamp ?? ''),
+                event: event,
+              ),
+            )
+            .where((entry) => entry.timestamp != null)
+            .toList()
+          ..sort((a, b) => a.timestamp!.compareTo(b.timestamp!));
 
     final startMs = start.millisecondsSinceEpoch;
     final endMs = end.millisecondsSinceEpoch;

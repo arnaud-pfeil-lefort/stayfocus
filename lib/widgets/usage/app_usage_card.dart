@@ -1,47 +1,107 @@
 import 'package:flutter/material.dart';
 
 import '../../models/app_usage_info.dart';
+import '../../theme/app_colors.dart';
 import '../../utils/duration_format.dart';
 import '../../utils/usage_stages.dart';
-import 'blinking_warning_badge.dart';
 import 'usage_card.dart';
+import 'usage_pulse_dot.dart';
 
-const _cardRadius = BorderRadius.all(Radius.circular(12));
-
-/// A single app's usage row, shown as a shadowed [Card].
+/// A single app's usage row in a clean, Apple-like card.
 ///
-/// When usage is high enough, the most severe stages get a matching glow
-/// around the card, plus a pulsing warning badge over the top-right corner.
+/// Apps that cross a severity threshold get a sober but living alert: a gently
+/// pulsing colored dot next to a colored duration, and — for the most severe
+/// stages — a soft colored halo around the card.
 class AppUsageCard extends StatelessWidget {
-  const AppUsageCard({super.key, required this.app, required this.onTap});
+  const AppUsageCard({
+    super.key,
+    required this.app,
+    required this.onTap,
+    this.forcedStage,
+  });
 
   final AppUsageInfo app;
   final VoidCallback onTap;
 
+  /// When set, overrides the usage-derived stage (used to preview the alert
+  /// effects regardless of actual usage).
+  final UsageStage? forcedStage;
+
   @override
   Widget build(BuildContext context) {
-    final stage = stageForUsage(app.usage);
+    final colors = Theme.of(context).colors;
+    final textTheme = Theme.of(context).textTheme;
+    final stage = forcedStage ?? stageForUsage(app.usage);
+    final durationColor = stage?.color ?? colors.textPrimary;
 
     Widget card = UsageCard(
-      child: ListTile(
-        leading: app.icon != null
-            ? Image.memory(app.icon!, width: 40, height: 40)
-            : const Icon(Icons.apps, size: 40),
-        title: Text(app.appName),
-        trailing: Text(formatDuration(app.usage)),
+      child: InkWell(
         onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colors.accentSoft,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: app.icon != null
+                    ? Image.memory(
+                        app.icon!,
+                        width: 30,
+                        height: 30,
+                        fit: BoxFit.contain,
+                      )
+                    : Icon(Icons.apps_rounded, size: 24, color: colors.accent),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  app.appName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium?.copyWith(fontSize: 15),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (stage != null) ...[
+                UsagePulseDot(color: stage.color),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                formatDuration(app.usage),
+                style: textTheme.titleMedium?.copyWith(
+                  fontSize: 14,
+                  color: durationColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colors.textMuted,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
       ),
     );
 
+    // Soft colored halo for the most severe stages.
     if (stage != null && stage.glow) {
-      card = Container(
+      card = DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: _cardRadius,
+          borderRadius: UsageCard.radius,
           boxShadow: [
             BoxShadow(
-              color: stage.color.withValues(alpha: 0.55),
-              blurRadius: 18,
-              spreadRadius: 2,
+              color: stage.color.withValues(alpha: 0.28),
+              blurRadius: 22,
+              spreadRadius: 1,
             ),
           ],
         ),
@@ -49,18 +109,6 @@ class AppUsageCard extends StatelessWidget {
       );
     }
 
-    if (stage == null) return card;
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        card,
-        Positioned(
-          top: -8,
-          right: -8,
-          child: BlinkingWarningBadge(stage: stage),
-        ),
-      ],
-    );
+    return card;
   }
 }
