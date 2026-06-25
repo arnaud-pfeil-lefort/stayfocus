@@ -13,25 +13,16 @@ import 'usage_pulse_dot.dart';
 /// pulsing colored dot next to a colored duration, and — for the most severe
 /// stages — a soft colored halo around the card.
 class AppUsageCard extends StatelessWidget {
-  const AppUsageCard({
-    super.key,
-    required this.app,
-    required this.onTap,
-    this.forcedStage,
-  });
+  const AppUsageCard({super.key, required this.app, required this.onTap});
 
   final AppUsageInfo app;
   final VoidCallback onTap;
-
-  /// When set, overrides the usage-derived stage (used to preview the alert
-  /// effects regardless of actual usage).
-  final UsageStage? forcedStage;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colors;
     final textTheme = Theme.of(context).textTheme;
-    final stage = forcedStage ?? stageForUsage(app.usage);
+    final stage = stageForUsage(app.usage);
     final durationColor = stage?.color ?? colors.textPrimary;
 
     Widget card = UsageCard(

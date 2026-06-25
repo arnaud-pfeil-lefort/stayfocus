@@ -10,3 +10,17 @@ String formatDuration(Duration duration) {
   }
   return '$hours h $minutes min';
 }
+
+/// Formats [duration] like [formatDuration] but without the trailing "min"
+/// unit, e.g. "1 h 23" or "45 min" — used for compact chart labels.
+String formatDurationCompact(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  if (hours == 0) {
+    return '$minutes min';
+  }
+  if (minutes == 0) {
+    return '$hours h';
+  }
+  return '$hours h $minutes';
+}

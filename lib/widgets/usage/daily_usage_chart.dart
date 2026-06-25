@@ -94,7 +94,9 @@ class _DayColumn extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          day.duration > Duration.zero ? formatDuration(day.duration) : '',
+          day.duration > Duration.zero
+              ? formatDurationCompact(day.duration)
+              : '',
           maxLines: 1,
           softWrap: false,
           overflow: TextOverflow.visible,

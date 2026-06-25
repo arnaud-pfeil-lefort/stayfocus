@@ -5,7 +5,6 @@ import '../../screens/app_usage_screen.dart';
 import '../../services/usage/source.dart';
 import '../../theme/app_colors.dart';
 import '../../utils/duration_format.dart';
-import '../../utils/usage_stages.dart';
 import 'app_usage_card.dart';
 import 'usage_message.dart';
 
@@ -91,15 +90,8 @@ class UsageAppList extends StatelessWidget {
               }
               final appIndex = localIndex - 1;
               final app = usage[appIndex];
-              // PREVIEW: force the three severity stages onto the first three
-              // apps so the alert effects are visible. Remove this line to use
-              // only real usage thresholds.
-              final forcedStage = appIndex < usageStages.length
-                  ? usageStages[appIndex]
-                  : null;
               return AppUsageCard(
                 app: app,
-                forcedStage: forcedStage,
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => AppUsageScreen(app: app, source: source),

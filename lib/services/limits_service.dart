@@ -70,4 +70,27 @@ class LimitsService {
     final status = await Permission.notification.request();
     return status.isGranted;
   }
+
+  /// Whether the user has enabled StayFocus's accessibility service, which
+  /// is what lets the blocking overlay reappear instantly when switching
+  /// back to a blocked app instead of waiting on the next usage-stats poll.
+  ///
+  /// Unlike the permissions above, this isn't a [Permission] from
+  /// permission_handler: accessibility services have no runtime-permission
+  /// dialog, so it's checked and toggled on the native side directly (see
+  /// LimitsPlugin.kt).
+  Future<bool> hasAccessibilityPermission() async {
+    if (!isSupported) return false;
+    final result = await _channel.invokeMethod<bool>(
+      'hasAccessibilityPermission',
+    );
+    return result ?? false;
+  }
+
+  /// Opens Settings > Accessibility, where the user must enable StayFocus
+  /// manually — there's no dialog that can grant this directly.
+  Future<void> openAccessibilitySettings() async {
+    if (!isSupported) return;
+    await _channel.invokeMethod('openAccessibilitySettings');
+  }
 }

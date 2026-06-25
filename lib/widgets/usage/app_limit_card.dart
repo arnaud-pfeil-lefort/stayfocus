@@ -123,6 +123,17 @@ class _AppLimitCardState extends State<AppLimitCard> {
         );
         return;
       }
+      // Not a runtime permission, so it can't be requested through a
+      // dialog: send the user to Settings and have them flip the switch
+      // again once StayFocus's accessibility service is enabled there.
+      // Without it, the block still works but can lag a few seconds when
+      // switching back to the app from Recents/Home.
+      final hasAccessibility = await _limitsService.hasAccessibilityPermission();
+      if (!hasAccessibility) {
+        await _limitsService.openAccessibilitySettings();
+        _showAccessibilitySnackBar();
+        return;
+      }
     }
     setState(() => _dailyLimitEnabled = enabled);
     await _save();
@@ -135,6 +146,18 @@ class _AppLimitCardState extends State<AppLimitCard> {
         content: Text(
           'StayFocus a besoin de la permission pour $permissionLabel '
           'pour activer cette option.',
+        ),
+      ),
+    );
+  }
+
+  void _showAccessibilitySnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Active "StayFocus" dans Réglages > Accessibilité pour un '
+          'blocage instantané, puis réessaie.',
         ),
       ),
     );

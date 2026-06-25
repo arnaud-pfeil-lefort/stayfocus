@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_label">StayFocus</string>
+    <string name="accessibility_service_description">Permet à StayFocus de détecter instantanément quand vous revenez sur une application bloquée, pour réafficher l\'écran de blocage sans délai. Aucune donnée n\'est lue ni envoyée ailleurs.</string>
+</resources>

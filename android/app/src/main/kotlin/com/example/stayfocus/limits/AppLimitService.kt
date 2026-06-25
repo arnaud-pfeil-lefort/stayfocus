@@ -44,11 +44,20 @@ class AppLimitService : Service() {
         private const val CHANNEL_WARNINGS = "stayfocus_warnings"
         private const val NOTIF_ID_MONITORING = 1
         private const val NOTIF_ID_WARNING = 2
+        // [ForegroundAppAccessibilityService] reports app switches instantly,
+        // so this poll is now only a safety net for warning/limit checks
+        // while the same app stays in the foreground for a while.
         private const val POLL_INTERVAL_MS = 1000L
         /// How far back to look the first time we poll, so the service knows
         /// the current foreground app immediately instead of waiting for the
         /// next app switch.
         private const val INITIAL_LOOKBACK_MS = 60_000L
+
+        /// The currently running instance, if any, so
+        /// [ForegroundAppAccessibilityService] can report foreground-app
+        /// changes the instant they happen instead of waiting for this
+        /// service's own poll tick.
+        @Volatile private var runningInstance: AppLimitService? = null
 
         fun start(context: Context) {
             val intent = Intent(context, AppLimitService::class.java)
@@ -67,6 +76,20 @@ class AppLimitService : Service() {
             } else {
                 stop(context)
             }
+        }
+
+        /// Called by [ForegroundAppAccessibilityService] the instant a new
+        /// window comes to the front, so the overlay can reappear (or get
+        /// dismissed) without waiting for the next poll tick. A no-op if the
+        /// service isn't running (no limits configured).
+        ///
+        /// Posted onto the service's own poller thread rather than run
+        /// inline, since this is called from the accessibility service's
+        /// main-thread callback and [handleForegroundChange] touches the
+        /// same overlay/cache state [poll] mutates from that thread.
+        fun onForegroundAppChanged(packageName: String) {
+            val instance = runningInstance ?: return
+            instance.handler.post { instance.handleForegroundChange(packageName) }
         }
     }
 
@@ -100,6 +123,7 @@ class AppLimitService : Service() {
         lastEventQueryTime = now - INITIAL_LOOKBACK_MS
         cachedForegroundPackage = queryLatestForegroundPackage(lastEventQueryTime, now)
         lastEventQueryTime = now
+        runningInstance = this
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -120,6 +144,7 @@ class AppLimitService : Service() {
     }
 
     override fun onDestroy() {
+        if (runningInstance === this) runningInstance = null
         handler.removeCallbacks(tick)
         hideOverlay()
         handlerThread.quitSafely()
@@ -128,26 +153,48 @@ class AppLimitService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /// Periodic safety net: re-derives the foreground app from
+    /// [UsageStatsManager] (in case an accessibility event was missed) and
+    /// re-evaluates it. This is also what catches a limit being crossed
+    /// while the same app stays in the foreground the whole time, since
+    /// that doesn't trigger a window-state-changed event.
     private fun poll() {
-        val limits = LimitsStore.loadLimits(this)
-        if (limits.isEmpty()) {
-            stopSelf()
-            return
-        }
+        if (stopIfNoLimits()) return
 
         val now = System.currentTimeMillis()
         val latestForeground = queryLatestForegroundPackage(lastEventQueryTime, now)
         if (latestForeground != null) cachedForegroundPackage = latestForeground
         lastEventQueryTime = now
 
-        val foregroundPackage = cachedForegroundPackage
+        evaluate(cachedForegroundPackage)
+    }
+
+    /// Called by [ForegroundAppAccessibilityService] the instant a new
+    /// window comes to the front. Bypasses the [UsageStatsManager] lookup
+    /// (and whatever latency it has) entirely, since the accessibility
+    /// event already tells us exactly which package that is.
+    private fun handleForegroundChange(packageName: String) {
+        if (stopIfNoLimits()) return
+        cachedForegroundPackage = packageName
+        evaluate(packageName)
+    }
+
+    /// Returns true (and stops the service) if no limit is configured
+    /// anymore, so callers can bail out early.
+    private fun stopIfNoLimits(): Boolean {
+        if (LimitsStore.loadLimits(this).isNotEmpty()) return false
+        stopSelf()
+        return true
+    }
+
+    private fun evaluate(foregroundPackage: String?) {
         if (foregroundPackage == packageName) {
             // Never block/cover StayFocus itself: the overlay would steal
             // window focus from the very activity used to configure it.
             if (overlayPackage != null) hideOverlay()
             return
         }
-        val limit = limits.firstOrNull { it.packageName == foregroundPackage }
+        val limit = LimitsStore.loadLimits(this).firstOrNull { it.packageName == foregroundPackage }
 
         if (foregroundPackage == null || limit == null) {
             if (overlayPackage != null && overlayPackage != foregroundPackage) hideOverlay()
