@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../models/app_usage_info.dart';
@@ -10,6 +12,7 @@ import '../widgets/app_background.dart';
 import '../widgets/usage/usage_app_list.dart';
 import '../widgets/usage/usage_chart_section.dart';
 import '../widgets/usage/usage_message.dart';
+import 'ios_app_limits_screen.dart';
 
 /// Shows the apps used over the last 7 days, sorted by usage time.
 ///
@@ -114,6 +117,12 @@ class _UsageScreenState extends State<UsageScreen>
       return const Center(child: CircularProgressIndicator());
     }
     if (!_source.isSupported) {
+      // iOS has no per-app usage API at all, but it has its own app-limiting
+      // path (FamilyControls/DeviceActivity) — show that instead of a dead
+      // end. Other unsupported platforms (web/desktop) keep the static message.
+      if (Platform.isIOS) {
+        return const IosAppLimitsScreen();
+      }
       return const UsageMessage(
         icon: Icons.info_outline,
         text: 'Le suivi du temps d\'utilisation n\'est pas encore '
