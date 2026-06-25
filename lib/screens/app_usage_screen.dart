@@ -6,6 +6,7 @@ import '../services/usage/source.dart';
 import '../utils/duration_format.dart';
 import '../utils/weekly_totals.dart';
 import '../widgets/app_background.dart';
+import '../widgets/usage/app_limit_card.dart';
 import '../widgets/usage/daily_usage_chart.dart';
 import '../widgets/usage/usage_card.dart';
 
@@ -48,41 +49,51 @@ class _AppUsageScreenState extends State<AppUsageScreen> {
       ),
       body: AppBackground(
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: FutureBuilder<List<DayUsage>>(
-              future: _weeklyTotalsFuture,
-              builder: (context, snapshot) {
-                final days = snapshot.data;
-                if (days == null) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final total = days.fold<Duration>(
-                  Duration.zero,
-                  (sum, day) => sum + day.duration,
-                );
-                return UsageCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        height: 150,
-                        child: DailyUsageChart(
-                          days: days,
-                          selectedOffset: null,
-                          onSelect: (_) {},
-                        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FutureBuilder<List<DayUsage>>(
+                  future: _weeklyTotalsFuture,
+                  builder: (context, snapshot) {
+                    final days = snapshot.data;
+                    if (days == null) {
+                      return const SizedBox(
+                        height: 200,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final total = days.fold<Duration>(
+                      Duration.zero,
+                      (sum, day) => sum + day.duration,
+                    );
+                    return UsageCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            height: 150,
+                            child: DailyUsageChart(
+                              days: days,
+                              selectedOffset: null,
+                              onSelect: (_) {},
+                            ),
+                          ),
+                          const Divider(height: 32),
+                          Text(
+                            'Total : ${formatDuration(total)}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
                       ),
-                      const Divider(height: 32),
-                      Text(
-                        'Total : ${formatDuration(total)}',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                );
-              },
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                AppLimitCard(packageName: app.packageName),
+              ],
             ),
           ),
         ),

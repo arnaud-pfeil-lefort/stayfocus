@@ -19,7 +19,9 @@ android {
         applicationId = "com.example.stayfocus"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Bumped from flutter.minSdkVersion (24): app-limit blocking needs
+        // notification channels and TYPE_APPLICATION_OVERLAY, both API 26+.
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -38,6 +40,11 @@ kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
+}
+
+dependencies {
+    // ServiceCompat.startForeground (typed foreground service start on API 29+).
+    implementation("androidx.core:core-ktx:1.13.1")
 }
 
 flutter {
