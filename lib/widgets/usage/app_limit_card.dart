@@ -7,7 +7,7 @@ import '../../utils/duration_format.dart';
 import 'usage_card.dart';
 
 const _warningOptions = [5, 10, 15, 20, 30, 45, 60];
-const _dailyLimitOptions = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
+const _dailyLimitOptions = [5, 10, 15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
 
 /// Lets the user configure a periodic usage warning and a daily usage block
 /// for a single app. Persists through [LimitsService], which also starts or

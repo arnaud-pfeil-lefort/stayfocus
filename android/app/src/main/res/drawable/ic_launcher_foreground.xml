@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  StayFocus brand mark — mirrors focus_logo.dart exactly:
+    viewport 108×108 dp (Android adaptive icon canvas)
+    ring radius 26.4, stroke 7.2 (12 % of 60 dp logo area)
+    gap 1.15 rad centred at the top; rounded stroke caps
+    dot radius 7.2 at centre
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Ring with gap at top (arc from upper-right to upper-left, clockwise) -->
+    <path
+        android:pathData="M 68.3,31.8 A 26.4,26.4,0,1,1,39.7,31.8"
+        android:strokeColor="#9D8DF5"
+        android:strokeWidth="7.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"/>
+
+    <!-- Centre dot -->
+    <path
+        android:pathData="M 46.8,54 A 7.2,7.2,0,1,0,61.2,54 A 7.2,7.2,0,1,0,46.8,54 Z"
+        android:fillColor="#9D8DF5"/>
+</vector>

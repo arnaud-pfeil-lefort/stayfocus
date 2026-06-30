@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- App dark-theme background gradient (matches AppColors.dark) -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%"   stop-color="#1B1828"/>
+      <stop offset="100%" stop-color="#121017"/>
+    </linearGradient>
+
+    <!-- Brand ring gradient -->
+    <linearGradient id="accent" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#C4B8FF"/>
+      <stop offset="50%"  stop-color="#9D8DF5"/>
+      <stop offset="100%" stop-color="#7C6BF0"/>
+    </linearGradient>
+
+    <!-- Soft glow around ring and dot -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Dark card background with rounded corners -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Subtle inner border -->
+  <rect width="512" height="512" rx="112" fill="none"
+        stroke="rgba(255,255,255,0.07)" stroke-width="1.5"/>
+
+  <!--
+    Ring with gap centered at the top.
+    size=512, stroke=61 (12%), ring-radius=225.5 ((512-61)/2)
+    gap=1.15 rad, start=-π/2+gap/2
+    sin(gap/2)=0.5415, cos(gap/2)=0.8408
+    start-pt ≈ (378.1, 66.4), end-pt ≈ (133.9, 66.4)
+    large-arc-flag=1 (sweep 294°>180°), sweep-flag=1 (clockwise)
+  -->
+  <path
+    d="M 378.1 66.4 A 225.5 225.5 0 1 1 133.9 66.4"
+    fill="none"
+    stroke="url(#accent)"
+    stroke-width="61"
+    stroke-linecap="round"
+    filter="url(#glow)"
+  />
+
+  <!-- Center dot with glow -->
+  <circle cx="256" cy="256" r="61" fill="url(#accent)" filter="url(#glow)"/>
+</svg>

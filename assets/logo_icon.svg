@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <defs>
+    <!-- Brand gradient: light violet → deep purple, top-right → bottom-left -->
+    <linearGradient id="accent" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#C4B8FF"/>
+      <stop offset="50%"  stop-color="#9D8DF5"/>
+      <stop offset="100%" stop-color="#7C6BF0"/>
+    </linearGradient>
+  </defs>
+
+  <!--
+    Ring with gap centered at the top.
+    Matches FocusLogo (focus_logo.dart) exactly:
+      size=400, stroke=48 (12%), ring-radius=176 ((400-48)/2)
+      gap=1.15 rad, start=-π/2+gap/2
+      start-pt ≈ (295.3, 52.0), end-pt ≈ (104.7, 52.0)
+      large-arc-flag=1 (sweep 294°>180°), sweep-flag=1 (clockwise)
+  -->
+  <path
+    d="M 295.3 52.0 A 176 176 0 1 1 104.7 52.0"
+    fill="none"
+    stroke="url(#accent)"
+    stroke-width="48"
+    stroke-linecap="round"
+  />
+
+  <!-- Center dot (radius = 12% of size) -->
+  <circle cx="200" cy="200" r="48" fill="url(#accent)"/>
+</svg>

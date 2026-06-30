@@ -19,7 +19,6 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.provider.Settings
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -102,6 +101,7 @@ class AppLimitService : Service() {
 
     private var overlayView: View? = null
     private var overlayPackage: String? = null
+    private var overlayShownAtMs = 0L
 
     private val tick = object : Runnable {
         override fun run() {
@@ -170,9 +170,11 @@ class AppLimitService : Service() {
     }
 
     /// Called by [ForegroundAppAccessibilityService] the instant a new
-    /// window comes to the front. Bypasses the [UsageStatsManager] lookup
-    /// (and whatever latency it has) entirely, since the accessibility
-    /// event already tells us exactly which package that is.
+    /// window comes to the front. Only acts on monitored apps and StayFocus
+    /// itself; system UI, IME, and unmonitored apps are intentionally ignored
+    /// so that transient overlays (status bar, notification shade, etc.) don't
+    /// cause the blocker to disappear. The poll recovers the real foreground
+    /// app via UsageStats within 1 s whenever the user actually navigates away.
     private fun handleForegroundChange(packageName: String) {
         if (stopIfNoLimits()) return
         cachedForegroundPackage = packageName
@@ -189,8 +191,12 @@ class AppLimitService : Service() {
 
     private fun evaluate(foregroundPackage: String?) {
         if (foregroundPackage == packageName) {
-            // Never block/cover StayFocus itself: the overlay would steal
-            // window focus from the very activity used to configure it.
+            // When the overlay appears, Android fires TYPE_WINDOW_STATE_CHANGED
+            // for our own package even with FLAG_NOT_FOCUSABLE. Ignore these
+            // false-positive events for 1000 ms after the overlay was shown —
+            // the user cannot navigate to StayFocus that quickly.
+            if (overlayPackage != null &&
+                System.currentTimeMillis() - overlayShownAtMs < 1000L) return
             if (overlayPackage != null) hideOverlay()
             return
         }
@@ -367,7 +373,8 @@ class AppLimitService : Service() {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             type,
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.START }
 
@@ -375,6 +382,7 @@ class AppLimitService : Service() {
             windowManager.addView(view, params)
             overlayView = view
             overlayPackage = packageName
+            overlayShownAtMs = System.currentTimeMillis()
         } catch (e: Exception) {
             // Overlay permission may have been revoked since the last check.
         }
@@ -463,21 +471,11 @@ class AppLimitService : Service() {
             addView(homeButton)
         }
 
-        return object : FrameLayout(context) {
-            override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-                if (event.keyCode == KeyEvent.KEYCODE_BACK) {
-                    if (event.action == KeyEvent.ACTION_UP) goHome()
-                    return true
-                }
-                return super.dispatchKeyEvent(event)
-            }
-        }.apply {
+        return FrameLayout(context).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(Color.parseColor("#1A1430"), Color.parseColor("#05050A")),
             )
-            isFocusable = true
-            isFocusableInTouchMode = true
             addView(
                 card,
                 FrameLayout.LayoutParams(
