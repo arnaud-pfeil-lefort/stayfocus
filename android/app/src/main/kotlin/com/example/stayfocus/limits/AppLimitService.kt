@@ -96,12 +96,22 @@ class AppLimitService : Service() {
     private lateinit var handler: Handler
     private lateinit var windowManager: WindowManager
 
+    private data class ForegroundQuery(val foreground: String?, val backgrounded: String?)
+
     private var lastEventQueryTime = 0L
     private var cachedForegroundPackage: String? = null
 
     private var overlayView: View? = null
     private var overlayPackage: String? = null
     private var overlayShownAtMs = 0L
+
+    // When the overlay hides, remember which app was blocked and when, so that
+    // poll() can re-show it if the user returns to it via recents without
+    // triggering a MOVE_TO_FOREGROUND (live-tile apps like Chrome never pause,
+    // so UsageStats doesn't fire MOVE_TO_FOREGROUND when tapping their recents card).
+    private var lastBlockedPackage: String? = null
+    private var lastBlockedHideMs = 0L
+    private var cachedLauncherPackage: String? = null
 
     private val tick = object : Runnable {
         override fun run() {
@@ -121,7 +131,7 @@ class AppLimitService : Service() {
         handler = Handler(handlerThread.looper)
         val now = System.currentTimeMillis()
         lastEventQueryTime = now - INITIAL_LOOKBACK_MS
-        cachedForegroundPackage = queryLatestForegroundPackage(lastEventQueryTime, now)
+        cachedForegroundPackage = queryForegroundEvents(lastEventQueryTime, now).foreground
         lastEventQueryTime = now
         runningInstance = this
     }
@@ -162,21 +172,53 @@ class AppLimitService : Service() {
         if (stopIfNoLimits()) return
 
         val now = System.currentTimeMillis()
-        val latestForeground = queryLatestForegroundPackage(lastEventQueryTime, now)
-        if (latestForeground != null) cachedForegroundPackage = latestForeground
+        val fe = queryForegroundEvents(lastEventQueryTime, now, cachedForegroundPackage)
         lastEventQueryTime = now
+
+        when {
+            fe.foreground != null -> cachedForegroundPackage = fe.foreground
+            fe.backgrounded != null && overlayView == null -> {
+                // The current foreground app just went to background with nothing new
+                // coming up. This is the "live tile" recents case: returning to Chrome
+                // (for example) from recent apps doesn't fire MOVE_TO_FOREGROUND because
+                // Chrome's window was never truly paused. Re-check the last blocked app.
+                val pkg = lastBlockedPackage
+                if (pkg != null && now - lastBlockedHideMs < 30_000L) {
+                    cachedForegroundPackage = pkg
+                }
+            }
+        }
 
         evaluate(cachedForegroundPackage)
     }
 
-    /// Called by [ForegroundAppAccessibilityService] the instant a new
-    /// window comes to the front. Only acts on monitored apps and StayFocus
-    /// itself; system UI, IME, and unmonitored apps are intentionally ignored
-    /// so that transient overlays (status bar, notification shade, etc.) don't
-    /// cause the blocker to disappear. The poll recovers the real foreground
-    /// app via UsageStats within 1 s whenever the user actually navigates away.
+    private fun isLauncherPackage(packageName: String): Boolean {
+        val cached = cachedLauncherPackage
+        if (cached != null) return packageName == cached
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        val resolved = packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
+        cachedLauncherPackage = resolved
+        return packageName == resolved
+    }
+
     private fun handleForegroundChange(packageName: String) {
         if (stopIfNoLimits()) return
+        // After showing an overlay, two kinds of false-positive events fire:
+        // 1. Our own package (TYPE_APPLICATION_OVERLAY being added to WindowManager)
+        // 2. The launcher (recent-apps-closing animation, ~50 ms after Chrome event)
+        // Both would hide the overlay immediately. Ignore any event that isn't
+        // the overlaid package for 1000 ms after the overlay appears.
+        if (overlayPackage != null &&
+            packageName != overlayPackage &&
+            System.currentTimeMillis() - overlayShownAtMs < 1000L) return
+        // If the user navigated to a genuinely different app (not the launcher, not
+        // StayFocus itself, not the previously-blocked app), the "return from recents"
+        // recovery is no longer relevant — clear it so poll() doesn't re-block.
+        if (packageName != lastBlockedPackage &&
+            !isLauncherPackage(packageName) &&
+            packageName != this.packageName) {
+            lastBlockedPackage = null
+        }
         cachedForegroundPackage = packageName
         evaluate(packageName)
     }
@@ -231,33 +273,56 @@ class AppLimitService : Service() {
         }
     }
 
-    /// Returns the package name of the most recently resumed app within
-    /// [fromMs, toMs), or null if the screen turned off in that window (no
-    /// app can legitimately be "in foreground" past that point) or no
-    /// transition happened.
-    private fun queryLatestForegroundPackage(fromMs: Long, toMs: Long): String? {
-        if (fromMs >= toMs) return null
+    /// Queries UsageStats events in [fromMs, toMs).
+    /// Returns:
+    ///   foreground  — the latest MOVE_TO_FOREGROUND package (net of any same-window
+    ///                 background), or null if the screen went off or no app came up.
+    ///   backgrounded — the package that was foreground (either in this window or
+    ///                  [prevForeground]) and then went to background with nothing new
+    ///                  coming up. Non-null only when foreground is null. Used to detect
+    ///                  the recents-live-tile case where the launcher closes without a
+    ///                  new MOVE_TO_FOREGROUND (because the returning app was never paused).
+    private fun queryForegroundEvents(fromMs: Long, toMs: Long, prevForeground: String? = null): ForegroundQuery {
+        if (fromMs >= toMs) return ForegroundQuery(null, null)
         val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val events = usm.queryEvents(fromMs, toMs)
         val event = UsageEvents.Event()
         var latestForeground: String? = null
+        var lastBackgrounded: String? = null
         var screenWentOff = false
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             when (event.eventType) {
                 UsageEvents.Event.MOVE_TO_FOREGROUND -> {
                     latestForeground = event.packageName
+                    lastBackgrounded = null
                     screenWentOff = false
+                }
+                UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                    // Match the current foreground: either set in this window or
+                    // carried over from the previous poll via prevForeground.
+                    val isCurrent = event.packageName == latestForeground ||
+                        (latestForeground == null && event.packageName == prevForeground)
+                    if (isCurrent) lastBackgrounded = event.packageName
                 }
                 // SCREEN_NON_INTERACTIVE (16) / DEVICE_SHUTDOWN (26): no app
                 // can legitimately be in the foreground past this point.
                 16, 26 -> {
                     latestForeground = null
+                    lastBackgrounded = null
                     screenWentOff = true
                 }
             }
         }
-        return if (screenWentOff) null else latestForeground
+        if (screenWentOff) return ForegroundQuery(null, null)
+        // If the foreground app also went to background (lastBackgrounded set and matches
+        // latestForeground, or latestForeground was null and we matched prevForeground),
+        // report it as backgrounded so the caller knows the launcher has closed.
+        return if (lastBackgrounded != null) {
+            ForegroundQuery(null, lastBackgrounded)
+        } else {
+            ForegroundQuery(latestForeground, null)
+        }
     }
 
     /// Exact foreground time for [packageName] since local midnight, by
@@ -390,6 +455,8 @@ class AppLimitService : Service() {
 
     private fun hideOverlay() {
         val view = overlayView ?: return
+        lastBlockedPackage = overlayPackage
+        lastBlockedHideMs = System.currentTimeMillis()
         try {
             windowManager.removeView(view)
         } catch (e: Exception) {
